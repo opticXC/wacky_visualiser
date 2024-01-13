@@ -180,7 +180,6 @@ unsafe extern "C" fn process_audio(data: *mut c_void, samples_count: u32) {
 
     fft(FFT_RAW_IN.as_ptr(), 1, FFT_RAW_OUT.as_mut_ptr(), FFT_SIZE);
 
-    MAX_AMP = 0.0f64;
     for &c in FFT_RAW_OUT.iter() {
         let amp = amplitude(&c);
         if MAX_AMP < amp {
