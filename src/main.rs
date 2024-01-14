@@ -1,6 +1,6 @@
 #[feature(ascii_char)]
 pub mod libs;
-use std::ops::Deref;
+use std::ops::{Deref, Index};
 use std::os::raw::{c_char, c_schar};
 use std::{f64::consts::PI, os::raw::c_void};
 
@@ -9,6 +9,7 @@ use concrete_fft::{
     ordered::{Method, Plan},
 };
 
+use libs::{catppuccin, Theme};
 use raylib_ffi::{
     self,
     colors::{LIGHTGRAY, RED},
@@ -19,15 +20,50 @@ fn main() {
     let mut width = 800;
     let mut height = 450;
 
+    let mut theme = libs::catppuccin::mocha(libs::catppuccin::ACCENTS::Flamingo);
+
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
-        println!("Usage: {} <path to audio file>", args[0]);
+        let help_string = format!("{} <path to audio file>", args[0]);
+        println!("{}", help_string);
         std::process::exit(1);
+    }
+    let mut path = String::new();
+    
+    let mut theme_idx = 0;
+    while theme_idx <args.len() {
+        match args[theme_idx].as_str() {
+            "--accent" => {
+                theme_idx += 1;
+                let theme_name = &args[theme_idx];
+                let accent = match theme_name.to_lowercase().as_str() {
+                    "rosewater" => catppuccin::ACCENTS::Rosewater,
+                    "flamingo" => catppuccin::ACCENTS::Flamingo,
+                    "pink" => catppuccin::ACCENTS::Pink,
+                    "mauve" => catppuccin::ACCENTS::Mauve,
+                    "red" => catppuccin::ACCENTS::Red,
+                    "maroon" => catppuccin::ACCENTS::Maroon,
+                    "peach" => catppuccin::ACCENTS::Peach,
+                    "yellow" => catppuccin::ACCENTS::Yellow,
+                    "green" => catppuccin::ACCENTS::Green,
+                    "teal" => catppuccin::ACCENTS::Teal,
+                    "sky" => catppuccin::ACCENTS::Sky,
+                    "saphire" => catppuccin::ACCENTS::Saphire,
+                    "blue" => catppuccin::ACCENTS::Blue,
+                    "lavender" => catppuccin::ACCENTS::Lavender,
+
+                    _ => catppuccin::ACCENTS::Flamingo,
+                };
+                theme = catppuccin::mocha(accent);
+            }
+            _ => path = args[theme_idx].deref().to_string(),
+        }
+        theme_idx += 1;
     }
 
     // C strings should be null ternimated
-    // you need to handle this yourselves
-    let mut path = args[1].deref().to_string();
+    // you need to add that yourselves
+    // wish i knew why....
     path += "\0";
     let audio_title = path.split("/").last().unwrap();
 
@@ -52,7 +88,7 @@ fn main() {
         // the callback needs 2 args
         // 1 is a void ptr to the raw output amplitudes of the wave
         // standard miniaudio stuff,
-        // 
+        //
         // 2 is number of frames in the current sample
         // handle this !!!
         raylib_ffi::AttachAudioStreamProcessor(audio.stream, Some(process_audio));
@@ -94,16 +130,16 @@ fn main() {
             }
 
             raylib_ffi::BeginDrawing();
-            raylib_ffi::ClearBackground(raylib_ffi::colors::RAYWHITE);
+            raylib_ffi::ClearBackground(theme.background);
             raylib_ffi::DrawText(
                 format!("Currently Playing {}\0", audio_title).as_ptr() as *const i8,
                 20,
                 10,
                 20,
-                raylib_ffi::colors::LIGHTGRAY,
+                theme.text,
             );
-            raylib_ffi::DrawRectangle(20, 40, width - 40, 20, LIGHTGRAY);
-            raylib_ffi::DrawRectangle(20, 40, bar as i32, 20, raylib_ffi::colors::MAROON);
+            raylib_ffi::DrawRectangle(20, 40, width - 40, 20, theme.foreground);
+            raylib_ffi::DrawRectangle(20, 40, bar as i32, 20, theme.accent);
 
             let visualizer_box = Rectangle {
                 x: 20.0,
@@ -112,12 +148,11 @@ fn main() {
                 height: height as f32 - 100.0,
             };
 
-            raylib_ffi::DrawRectangleRec(visualizer_box, raylib_ffi::colors::LIGHTGRAY);
-
+            raylib_ffi::DrawRectangleRec(visualizer_box, theme.foreground);
 
             match v_mode {
                 VISUAL_MODE::WaveForm => {
-                    if playing{
+                    if playing {
                         update_waveform_buffer();
                     }
                     draw_waveform(
@@ -125,12 +160,12 @@ fn main() {
                         visualizer_box.y as i32,
                         visualizer_box.width as i32,
                         visualizer_box.height as i32,
-                        RED,
+                        theme.accent,
                     );
-                },
+                }
 
-                VISUAL_MODE::FftSpectrum =>{ 
-                    if playing{
+                VISUAL_MODE::FftSpectrum => {
+                    if playing {
                         update_freq_buffer();
                     }
 
@@ -139,9 +174,9 @@ fn main() {
                         visualizer_box.y as i32,
                         visualizer_box.width as i32,
                         visualizer_box.height as i32,
-                        RED,
+                        theme.accent,
                     );
-                },
+                }
             };
 
             if draw_fps {
@@ -175,7 +210,7 @@ static mut FFT_RAW_OUT: [c64; FFT_SIZE] = [c64::new(0.0, 0.0); FFT_SIZE];
 static mut MAX_AMP: f64 = 0.0;
 
 unsafe extern "C" fn process_audio(data: *mut c_void, samples_count: u32) {
-    if samples_count as usize != FFT_SIZE{
+    if samples_count as usize != FFT_SIZE {
         return;
     }
 
@@ -186,16 +221,15 @@ unsafe extern "C" fn process_audio(data: *mut c_void, samples_count: u32) {
 
         frames = frames.add(1);
     }
-    
+
     // starting smoothening stuff.... i dont get this very well
 
     // apply hann window on raw input
-    for i in 0..FFT_SIZE{
-        let t:f64 = i as f64 / (FFT_SIZE -1) as f64;
-        let hann:f64 = 0.5 - (0.5 * (2.0*PI*t).cos());
+    for i in 0..FFT_SIZE {
+        let t: f64 = i as f64 / (FFT_SIZE - 1) as f64;
+        let hann: f64 = 0.5 - (0.5 * (2.0 * PI * t).cos());
         FFT_RAW_IN[i] = FFT_RAW_IN[i] * hann;
     }
-
 
     // FFT
 
@@ -238,7 +272,7 @@ unsafe fn amplitude(sample: &c64) -> f64 {
 
 static mut WAVEFORM_BUFFER: [f64; FFT_SIZE] = [0.0; FFT_SIZE];
 
-unsafe fn update_waveform_buffer(){
+unsafe fn update_waveform_buffer() {
     let mut current = 0.0;
     for inp in FFT_RAW_IN.iter() {
         current += inp;
@@ -249,9 +283,7 @@ unsafe fn update_waveform_buffer(){
     }
 
     WAVEFORM_BUFFER[FFT_SIZE - 1] = current.abs();
-
 }
-
 
 unsafe fn draw_waveform(x: i32, y: i32, w: i32, h: i32, color: raylib_ffi::Color) {
     let bar_width = w / FFT_SIZE as i32;
@@ -267,52 +299,46 @@ unsafe fn draw_waveform(x: i32, y: i32, w: i32, h: i32, color: raylib_ffi::Color
     }
 }
 
-
-
 //const FREQ_INDEXES: [usize; FREQ_SIZE] = [1,2,4,8,16,32,48,50,56,64,70,78,84,90 ,96,100,104,108, 120];
 
+const VB_SIZE: usize = FFT_SIZE / 2;
+const BUFFER_SIZE: usize = 3;
 
-const VB_SIZE:usize = FFT_SIZE/2;
-const BUFFER_SIZE:usize = 5;
+static mut VISUAL_BUFFER: [[f64; VB_SIZE]; BUFFER_SIZE] = [[0.0; VB_SIZE]; BUFFER_SIZE];
 
-static mut VISUAL_BUFFER:[[f64;VB_SIZE];BUFFER_SIZE] = [[0.0; VB_SIZE]; BUFFER_SIZE];
-
-const CRUSHER:usize = 4;
-unsafe fn update_freq_buffer(){
-    for i in 0..BUFFER_SIZE-1{
-        VISUAL_BUFFER[i] = VISUAL_BUFFER[i+1];
+const CRUSHER: usize = 4;
+unsafe fn update_freq_buffer() {
+    for i in 0..BUFFER_SIZE - 1 {
+        VISUAL_BUFFER[i] = VISUAL_BUFFER[i + 1];
     }
 
-    for i in 0..VB_SIZE{
+    for i in 0..VB_SIZE {
         let mut amp = 0.0f64;
-        
-        if  i>(CRUSHER/2) && i+(CRUSHER/2) < VB_SIZE {
-            for j in -(CRUSHER as i32/2)..(CRUSHER/2) as i32{
-                amp += amplitude(&FFT_RAW_OUT[ (i as i32 + j) as usize ]);
+
+        if i > (CRUSHER / 2) && i + (CRUSHER / 2) < VB_SIZE {
+            for j in -(CRUSHER as i32 / 2)..(CRUSHER / 2) as i32 {
+                amp += amplitude(&FFT_RAW_OUT[(i as i32 + j) as usize]);
             }
             amp /= CRUSHER as f64;
-        }else{
+        } else {
             amp = amplitude(&FFT_RAW_OUT[i]);
         }
 
-        VISUAL_BUFFER[BUFFER_SIZE-1][i] = amp/MAX_AMP;
+        VISUAL_BUFFER[BUFFER_SIZE - 1][i] = amp / MAX_AMP;
     }
 }
 
 // who cares about the rest of the spectrum
 // 22050 * 512 / 48000 = 235.2
 
-const DRAW_UPTO:usize = 235;
-
+const DRAW_UPTO: usize = 235;
 
 unsafe fn draw_fft(x: i32, y: i32, w: i32, h: i32, color: raylib_ffi::Color) {
-
-
     let bar_width = w as f64 / DRAW_UPTO as f64;
-    
-    for i in 0..DRAW_UPTO{
+
+    for i in 0..DRAW_UPTO {
         let mut c = 0.0f64;
-        for j in 0..BUFFER_SIZE{
+        for j in 0..BUFFER_SIZE {
             c += VISUAL_BUFFER[j][i];
         }
         c /= BUFFER_SIZE as f64;
@@ -327,10 +353,9 @@ unsafe fn draw_fft(x: i32, y: i32, w: i32, h: i32, color: raylib_ffi::Color) {
             y + h - height.floor() as i32,
             bar_width.floor() as i32,
             height.floor() as i32,
-            color
+            color,
         );
     }
-
 }
 
 enum VISUAL_MODE {
