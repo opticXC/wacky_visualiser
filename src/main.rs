@@ -1,18 +1,16 @@
 #[feature(ascii_char)]
 pub mod libs;
-use std::ops::{Deref, Index};
-use std::os::raw::{c_char, c_schar};
+use std::ops::{Deref};
+
 use std::{f64::consts::PI, os::raw::c_void};
 
 use concrete_fft::{
     c64,
-    ordered::{Method, Plan},
 };
 
-use libs::{catppuccin, Theme};
+use libs::{catppuccin};
 use raylib_ffi::{
     self,
-    colors::{LIGHTGRAY, RED},
     Rectangle,
 };
 
