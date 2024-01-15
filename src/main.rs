@@ -1,24 +1,18 @@
-#[feature(ascii_char)]
 pub mod libs;
-use std::ops::{Deref};
+use std::ops::Deref;
 
 use std::{f64::consts::PI, os::raw::c_void};
 
-use concrete_fft::{
-    c64,
-};
+use concrete_fft::c64;
 
-use libs::{catppuccin};
-use raylib_ffi::{
-    self,
-    Rectangle,
-};
+use libs::catppuccin;
+use raylib_ffi::{self, Rectangle};
 
 fn main() {
     let mut width = 800;
     let mut height = 450;
 
-    let mut theme = libs::catppuccin::mocha(libs::catppuccin::ACCENTS::Flamingo);
+    let mut theme = libs::catppuccin::mocha(libs::catppuccin::Accents::Flamingo);
 
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
@@ -27,30 +21,30 @@ fn main() {
         std::process::exit(1);
     }
     let mut path = String::new();
-    
+
     let mut theme_idx = 0;
-    while theme_idx <args.len() {
+    while theme_idx < args.len() {
         match args[theme_idx].as_str() {
             "--accent" => {
                 theme_idx += 1;
                 let theme_name = &args[theme_idx];
                 let accent = match theme_name.to_lowercase().as_str() {
-                    "rosewater" => catppuccin::ACCENTS::Rosewater,
-                    "flamingo" => catppuccin::ACCENTS::Flamingo,
-                    "pink" => catppuccin::ACCENTS::Pink,
-                    "mauve" => catppuccin::ACCENTS::Mauve,
-                    "red" => catppuccin::ACCENTS::Red,
-                    "maroon" => catppuccin::ACCENTS::Maroon,
-                    "peach" => catppuccin::ACCENTS::Peach,
-                    "yellow" => catppuccin::ACCENTS::Yellow,
-                    "green" => catppuccin::ACCENTS::Green,
-                    "teal" => catppuccin::ACCENTS::Teal,
-                    "sky" => catppuccin::ACCENTS::Sky,
-                    "saphire" => catppuccin::ACCENTS::Saphire,
-                    "blue" => catppuccin::ACCENTS::Blue,
-                    "lavender" => catppuccin::ACCENTS::Lavender,
+                    "rosewater" => catppuccin::Accents::Rosewater,
+                    "flamingo" => catppuccin::Accents::Flamingo,
+                    "pink" => catppuccin::Accents::Pink,
+                    "mauve" => catppuccin::Accents::Mauve,
+                    "red" => catppuccin::Accents::Red,
+                    "maroon" => catppuccin::Accents::Maroon,
+                    "peach" => catppuccin::Accents::Peach,
+                    "yellow" => catppuccin::Accents::Yellow,
+                    "green" => catppuccin::Accents::Green,
+                    "teal" => catppuccin::Accents::Teal,
+                    "sky" => catppuccin::Accents::Sky,
+                    "saphire" => catppuccin::Accents::Saphire,
+                    "blue" => catppuccin::Accents::Blue,
+                    "lavender" => catppuccin::Accents::Lavender,
 
-                    _ => catppuccin::ACCENTS::Flamingo,
+                    _ => catppuccin::Accents::Flamingo,
                 };
                 theme = catppuccin::mocha(accent);
             }
@@ -80,7 +74,7 @@ fn main() {
 
         let mut playing = true;
         let mut draw_fps = false;
-        let mut v_mode = VISUAL_MODE::FftSpectrum;
+        let mut v_mode = VisualMode::FftSpectrum;
 
         // attaching a callback to the stream, runs everything the stream is updated;
         // the callback needs 2 args
@@ -118,8 +112,8 @@ fn main() {
 
             if raylib_ffi::IsKeyPressed(raylib_ffi::enums::KeyboardKey::V as i32) {
                 v_mode = match v_mode {
-                    VISUAL_MODE::WaveForm => VISUAL_MODE::FftSpectrum,
-                    VISUAL_MODE::FftSpectrum => VISUAL_MODE::WaveForm,
+                    VisualMode::WaveForm => VisualMode::FftSpectrum,
+                    VisualMode::FftSpectrum => VisualMode::WaveForm,
                 }
             }
 
@@ -149,7 +143,7 @@ fn main() {
             raylib_ffi::DrawRectangleRec(visualizer_box, theme.foreground);
 
             match v_mode {
-                VISUAL_MODE::WaveForm => {
+                VisualMode::WaveForm => {
                     if playing {
                         update_waveform_buffer();
                     }
@@ -162,7 +156,7 @@ fn main() {
                     );
                 }
 
-                VISUAL_MODE::FftSpectrum => {
+                VisualMode::FftSpectrum => {
                     if playing {
                         update_freq_buffer();
                     }
@@ -304,7 +298,10 @@ const BUFFER_SIZE: usize = 3;
 
 static mut VISUAL_BUFFER: [[f64; VB_SIZE]; BUFFER_SIZE] = [[0.0; VB_SIZE]; BUFFER_SIZE];
 
+// why did i name this crusher....
+// anyways, keep this a multiple of 2
 const CRUSHER: usize = 4;
+
 unsafe fn update_freq_buffer() {
     for i in 0..BUFFER_SIZE - 1 {
         VISUAL_BUFFER[i] = VISUAL_BUFFER[i + 1];
@@ -356,7 +353,7 @@ unsafe fn draw_fft(x: i32, y: i32, w: i32, h: i32, color: raylib_ffi::Color) {
     }
 }
 
-enum VISUAL_MODE {
+enum VisualMode {
     WaveForm,
     FftSpectrum,
 }
