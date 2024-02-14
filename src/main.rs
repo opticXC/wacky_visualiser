@@ -76,13 +76,13 @@ fn main() {
         let mut draw_fps = false;
         let mut v_mode = VisualMode::FftSpectrum;
 
-        // attaching a callback to the stream, runs everything the stream is updated;
+        // attaching a callback to the stream, runs everytime the stream is updated;
         // the callback needs 2 args
         // 1 is a void ptr to the raw output amplitudes of the wave
         // standard miniaudio stuff,
         //
         // 2 is number of frames in the current sample
-        // handle this !!!
+        // handle this properly !!!
         raylib_ffi::AttachAudioStreamProcessor(audio.stream, Some(process_audio));
 
         raylib_ffi::PlayMusicStream(audio);
@@ -192,8 +192,9 @@ struct Frame {
     right: f32,
 }
 
-// FFT size should be in powers of 2
-// ignore anything smaller than 256, it wount be a good time....
+/* FFT size should be in powers of 2
+ * ignore anything smaller than 256, it wount be a good time....
+ */
 const FFT_SIZE: usize = 512;
 
 static mut FFT_RAW_IN: [f64; FFT_SIZE] = [0.0; FFT_SIZE];
@@ -223,10 +224,10 @@ unsafe extern "C" fn process_audio(data: *mut c_void, samples_count: u32) {
         FFT_RAW_IN[i] = FFT_RAW_IN[i] * hann;
     }
 
-    // FFT
-
+    // actual fft
     fft(FFT_RAW_IN.as_ptr(), 1, FFT_RAW_OUT.as_mut_ptr(), FFT_SIZE);
-
+    
+    // update [MAX_AMP] based on current frame
     for &c in FFT_RAW_OUT.iter() {
         let amp = amplitude(&c);
         if MAX_AMP < amp {
@@ -259,7 +260,8 @@ unsafe fn fft(input: *const f64, stride: usize, output: *mut c64, n: usize) {
 unsafe fn amplitude(sample: &c64) -> f64 {
     let real = sample.re;
     let im = sample.im;
-    return (real * real + im * im).sqrt();
+
+    (real * real + im * im).sqrt()
 }
 
 static mut WAVEFORM_BUFFER: [f64; FFT_SIZE] = [0.0; FFT_SIZE];
@@ -280,7 +282,7 @@ unsafe fn update_waveform_buffer() {
 unsafe fn draw_waveform(x: i32, y: i32, w: i32, h: i32, color: raylib_ffi::Color) {
     let bar_width = w / FFT_SIZE as i32;
     for i in 0..FFT_SIZE - 1 {
-        let height = (h as f64 * WAVEFORM_BUFFER[i] * 0.1f64).floor() as i32;
+        let height = (h as f64 * WAVEFORM_BUFFER[i]).floor() as i32;
         raylib_ffi::DrawRectangle(
             x + i as i32 * bar_width as i32,
             y + h / 2 - height / 2,
@@ -300,7 +302,7 @@ static mut VISUAL_BUFFER: [[f64; VB_SIZE]; BUFFER_SIZE] = [[0.0; VB_SIZE]; BUFFE
 
 // why did i name this crusher....
 // anyways, keep this a multiple of 2
-const CRUSHER: usize = 4;
+const CRUSHER: usize = 2;
 
 unsafe fn update_freq_buffer() {
     for i in 0..BUFFER_SIZE - 1 {
@@ -324,9 +326,9 @@ unsafe fn update_freq_buffer() {
 }
 
 // who cares about the rest of the spectrum
-// 22050 * 512 / 48000 = 235.2
+// 14000 * 512 / 48000 = 149.3
 
-const DRAW_UPTO: usize = 235;
+const DRAW_UPTO: usize = 150;
 
 unsafe fn draw_fft(x: i32, y: i32, w: i32, h: i32, color: raylib_ffi::Color) {
     let bar_width = w as f64 / DRAW_UPTO as f64;
