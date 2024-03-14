@@ -226,7 +226,7 @@ unsafe extern "C" fn process_audio(data: *mut c_void, samples_count: u32) {
 
     // actual fft
     fft(FFT_RAW_IN.as_ptr(), 1, FFT_RAW_OUT.as_mut_ptr(), FFT_SIZE);
-    
+
     // update [MAX_AMP] based on current frame
     for &c in FFT_RAW_OUT.iter() {
         let amp = amplitude(&c);
@@ -268,9 +268,12 @@ static mut WAVEFORM_BUFFER: [f64; FFT_SIZE] = [0.0; FFT_SIZE];
 
 unsafe fn update_waveform_buffer() {
     let mut current = 0.0;
-    for inp in FFT_RAW_IN.iter() {
-        current += inp;
+    let mut i: usize = 0;
+    while (i < FFT_SIZE) {
+        current += FFT_RAW_IN[i];
+        i += 1;
     }
+
     current /= FFT_SIZE as f64;
     for i in 0..FFT_SIZE - 1 {
         WAVEFORM_BUFFER[i] = WAVEFORM_BUFFER[i + 1];
