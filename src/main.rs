@@ -269,7 +269,7 @@ static mut WAVEFORM_BUFFER: [f64; FFT_SIZE] = [0.0; FFT_SIZE];
 unsafe fn update_waveform_buffer() {
     let mut current = 0.0;
     let mut i: usize = 0;
-    while (i < FFT_SIZE) {
+    while i < FFT_SIZE {
         current += FFT_RAW_IN[i];
         i += 1;
     }
